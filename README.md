@@ -5,7 +5,7 @@
 A local-first tool that continuously ingests CISA's Known Exploited Vulnerabilities (KEV) catalog, matches them deterministically to your environment, and uses AI to generate actionable remediation guidance.
 
 ![Version](https://img.shields.io/badge/version-0.3.0-blue)
-![Python](https://img.shields.io/badge/python-3.8+-green)
+![Go](https://img.shields.io/badge/go-1.21+-00ADD8?logo=go)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 ## 🎯 Features
@@ -21,7 +21,7 @@ A local-first tool that continuously ingests CISA's Known Exploited Vulnerabilit
 
 ## 📋 Prerequisites
 
-- Python 3.8 or higher
+- Go 1.21 or higher
 - Optional: Anthropic API key (for AI remediation features)
 
 ## 🚀 Quick Start
@@ -33,7 +33,10 @@ A local-first tool that continuously ingests CISA's Known Exploited Vulnerabilit
 cd KEV-to-Environment-Correlation-Agent
 
 # Install dependencies
-pip install -r requirements.txt
+make install
+
+# Or manually:
+go mod download
 
 # Copy example environment file
 cp .env.example .env
@@ -64,24 +67,40 @@ prioritization:
     finding_age: 0.15
 ```
 
-### 3. Initial Setup
+### 3. Build and Initial Setup
 
 ```bash
+# Build the application
+make build
+
+# Or build individually:
+make build-cli   # Build CLI tool
+make build-web   # Build web server
+
 # Sync KEV catalog
-python kev_mapper.py sync
+./bin/kev-mapper sync
+
+# Or use make:
+make sync
 
 # Import your environment data (scanner export or asset inventory)
-python kev_mapper.py import-data path/to/nessus_export.csv --type nessus_csv
+./bin/kev-mapper import-data path/to/nessus_export.csv --type nessus_csv
 
 # Run matching and prioritization
-python kev_mapper.py full-sync
+./bin/kev-mapper full-sync
+
+# Or use make:
+make full-sync
 ```
 
 ### 4. Use the Web UI
 
 ```bash
 # Start the web application
-python webapp.py
+./bin/kev-webapp
+
+# Or use make:
+make run-web
 
 # Open browser to http://localhost:8000
 ```
@@ -94,65 +113,65 @@ python webapp.py
 
 ```bash
 # Sync KEV catalog from CISA
-python kev_mapper.py sync
+./bin/kev-mapper sync
 
 # View KEV updates
-python kev_mapper.py list-matches --limit 10
+./bin/kev-mapper list-matches --limit 10
 ```
 
 #### Import Environment Data
 
 ```bash
 # Import Nessus CSV export
-python kev_mapper.py import-data nessus_export.csv --type nessus_csv
+./bin/kev-mapper import-data nessus_export.csv --type nessus_csv
 
 # Import Qualys CSV export
-python kev_mapper.py import-data qualys_export.csv --type qualys_csv
+./bin/kev-mapper import-data qualys_export.csv --type qualys_csv
 
 # Import asset inventory (JSON or CSV)
-python kev_mapper.py import-data assets.json --type asset_inventory
+./bin/kev-mapper import-data assets.json --type asset_inventory
 
 # Import SBOM (CycloneDX or SPDX)
-python kev_mapper.py import-data sbom.json --type sbom
+./bin/kev-mapper import-data sbom.json --type sbom
 ```
 
 #### Matching and Prioritization
 
 ```bash
 # Run matching engine
-python kev_mapper.py match
+./bin/kev-mapper match
 
 # Calculate priority scores
-python kev_mapper.py prioritize
+./bin/kev-mapper prioritize
 
 # Run full workflow (sync + match + prioritize)
-python kev_mapper.py full-sync
+./bin/kev-mapper full-sync
 ```
 
 #### View and Analyze Matches
 
 ```bash
 # List open matches
-python kev_mapper.py list-matches --status open --limit 20
+./bin/kev-mapper list-matches --status open --limit 20
 
 # Show detailed match information
-python kev_mapper.py show 123
+./bin/kev-mapper show 123
 
-# Generate AI remediation packet
-python kev_mapper.py remediate 123
+# Generate AI remediation packet (coming soon)
+./bin/kev-mapper remediate 123
 ```
 
 #### Export
 
 ```bash
 # Export to Markdown
-python kev_mapper.py export --format markdown --limit 50
+./bin/kev-mapper export --format markdown --limit 50
 
 # Export to JSON
-python kev_mapper.py export --format json --limit 50 --output report.json
+./bin/kev-mapper export --format json --limit 50 --output report.json
 
 # Export to CSV
-python kev_mapper.py export --format csv --limit 100
+./bin/kev-mapper export --format csv --limit 100
 ```
 
 ### Web Interface
@@ -164,7 +183,7 @@ The web UI provides:
 - **Assets Page**: View your asset inventory
 - **KEV Updates**: Track new KEV entries
 
-Access at `http://localhost:8000` after starting with `python webapp.py`
+Access at `http://localhost:8000` after starting with `./bin/kev-webapp` or `make run-web`
 
 ## 📂 Data Import Formats
 
@@ -232,30 +251,59 @@ The AI assistant (powered by Claude):
 
 ```
 KEV-to-Environment-Correlation-Agent/
-├── src/
-│   ├── database/          # SQLAlchemy models and DB management
+├── cmd/
+│   ├── kev-mapper/        # CLI application main
+│   └── webapp/            # Web server main
+├── pkg/
+│   ├── config/            # Configuration management
+│   ├── database/          # Database connection
 │   ├── ingestion/         # KEV and environment data import
 │   ├── matching/          # Correlation engine
 │   ├── prioritization/    # Scoring logic
 │   ├── ai/                # AI remediation assistant
 │   ├── exports/           # Export formatters
-│   ├── web/               # FastAPI web application
-│   └── cli/               # Click CLI commands
+│   └── web/               # Web handlers
+├── internal/
+│   ├── models/            # Database models (GORM)
+│   └── utils/             # Internal utilities
+├── bin/                   # Compiled binaries
 ├── data/                  # Database and local storage
 ├── imports/               # Place import files here
 ├── exports/               # Export output directory
 ├── config.yaml            # Configuration
-└── requirements.txt       # Python dependencies
+├── go.mod                 # Go module dependencies
+├── go.sum                 # Dependency checksums
+└── Makefile               # Build automation
+```
+
+### Building and Running
+
+```bash
+# Build everything
+make build
+
+# Run specific targets
+make run-cli     # Run CLI tool
+make run-web     # Run web server
+make sync        # Quick KEV sync
+make full-sync   # Full workflow
+
+# Development
+make install     # Install dependencies
+make fmt         # Format code
+make vet         # Run go vet
+make test        # Run tests
+make clean       # Clean build artifacts
 ```
 
 ### Running Tests
 
 ```bash
-# Install test dependencies
-pip install pytest pytest-cov
-
 # Run tests
-pytest tests/
+make test
+
+# Or directly:
+go test -v ./...
 ```
 
 ## 📝 Release Plan
@@ -299,6 +347,16 @@ This tool is for authorized security testing and defensive security operations o
 - Complying with all applicable laws and regulations
 - Validating AI-generated recommendations before implementation
 - Maintaining appropriate backups and change control processes
+
+## 🔧 Technology Stack
+
+This application is built with:
+- **Go 1.21+** - Fast, compiled, cross-platform
+- **GORM** - ORM for database operations
+- **Cobra** - CLI framework
+- **Gin** - Web framework
+- **SQLite** - Local-first database
+- **Viper** - Configuration management
 
 ---
 
