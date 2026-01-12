@@ -1,0 +1,384 @@
+Product Requirements Document (PRD)
+
+Project: KEV-to-Environment Correlation Agent (“KEV Mapper”)
+
+Document version: 1.0
+Audience: You (builder), future users (if open-sourced), and any reviewer/tester
+Context: Personal cybersecurity project (single-operator by default)
+
+1) Background and Problem Statement
+
+CISA’s Known Exploited Vulnerabilities (KEV) catalog is a curated list of vulnerabilities with evidence of active exploitation and is intended to drive prioritization.
+The operational challenge is that “KEV relevance” is only actionable after correlating each KEV entry to the assets, software versions, and exposure context in your environment—work that is repetitive, slow, and error-prone when done manually (the exact pain point highlighted in recent industry reporting).
+
+Problem to solve: Reduce the time and effort required to (1) detect which KEV entries apply to your environment, (2) produce evidence-backed remediation tasks, and (3) keep this continuously up to date.
+
+2) Product Vision
+
+Build a local-first “agentic” workflow that continuously ingests KEV updates, matches them deterministically to your environment, and uses an AI assistant to generate high-quality remediation packets (tickets, commands, validation steps, and executive summaries) with guardrails.
+
+This aligns with broader “agents assist the SOC” direction (e.g., Microsoft’s Security Copilot agents concept), but implemented as a personal, tool-agnostic system you control.
+
+3) Goals and Non-Goals
+Goals
+
+Fast applicability decisions: Identify which KEV CVEs likely affect your environment within minutes of catalog updates.
+
+Evidence-first correlation: Every “affected asset” assertion must include machine-verifiable evidence (scanner finding ID, package/version proof, or CPE match rationale).
+
+Actionable outputs: Produce remediation tasks with: scope, urgency, fix options, compensating controls, validation steps, and rollback guidance.
+
+Continuous operation: Run on a schedule (e.g., hourly/daily) and maintain history/audit trails.
+
+Safe agent behavior: AI can propose and draft; execution is gated and optional.
+
+Non-Goals (initial releases)
+
+Fully autonomous patching or configuration changes without explicit approval.
+
+Replacing a vulnerability scanner or CMDB; the system integrates with them.
+
+Exploit development, offensive automation, or weaponization workflows.
+
+4) Target Users and Personas
+
+Solo Defender (Primary): A single operator managing a homelab, lab, or small environment; wants prioritized, evidence-backed worklists.
+
+Small Org Admin (Secondary): Small team environment; wants ticket-ready outputs and weekly reporting.
+
+Reviewer/Auditor (Tertiary): Wants to understand “why this was prioritized” and trace evidence.
+
+5) User Stories (Representative)
+
+As a Solo Defender, I want to see “New KEV entries since last run” and whether they impact any of my assets.
+
+As a user, I want each matched asset to show exactly what evidence triggered the match (scanner plugin output, installed version, etc.).
+
+As a user, I want the system to draft a remediation ticket with steps and validation commands.
+
+As a user, I want a weekly report summarizing KEV exposure reduction and overdue items.
+
+6) Scope Overview (MVP → v1)
+MVP (v0.1–v0.3)
+
+KEV ingestion + diffing
+
+Deterministic matching to environment (from imports)
+
+Prioritized list + evidence view
+
+AI-generated remediation packet (draft) per match
+
+Simple UI (web) or TUI + exportable Markdown/JSON
+
+v1.0
+
+Notifications (email/Slack/Discord/webhook)
+
+Integrations (ticket export; optional Jira/GitHub Issues)
+
+Policy rules (SLA by asset criticality/exposure)
+
+Local-first secrets management + audit logging hardening
+
+7) Functional Requirements
+7.1 Data Ingestion
+
+KEV Source
+
+Pull official KEV data (JSON/CSV) from CISA and/or the official GitHub mirror.
+
+Track:
+
+lastModified / commit hash (or timestamp)
+
+new entries
+
+updated entries
+
+removals (rare, but handle)
+
+Environment Sources (choose at least one for MVP)
+
+Vulnerability scanner exports (e.g., Nessus/Qualys/OpenVAS) via file import
+
+Asset inventory export (CSV/JSON)
+
+Optional: OSQuery package inventory export; Windows installed software export; SBOM (CycloneDX/SPDX)
+
+Acceptance criteria
+
+System can ingest KEV successfully and retain historical snapshots.
+
+System can import at least one environment data type and store normalized records.
+
+7.2 Normalization and Data Model
+
+Core entities
+
+kev_entry: CVE, vendor/product, short description, required action notes, due date (if present), references
+
+asset: hostname, IP, OS, owner/tag, criticality, environment (prod/dev), exposure flags (internet-facing)
+
+finding: asset_id, CVE, product, detected_version, evidence_blob, source (scanner/inventory), timestamp
+
+match: kev_entry_id, asset_id, confidence (deterministic levels), evidence pointers, status (open/mitigated/false-positive)
+
+Acceptance criteria
+
+All matches are reproducible from stored inputs.
+
+Evidence is stored immutably (or with hash) to support later review.
+
+7.3 Correlation (Deterministic Engine)
+
+Matching logic (ordered, conservative)
+
+Direct CVE match from scanner findings (highest confidence)
+
+Package/software version match where CVE applicability can be determined
+
+CPE match (with explicit rule-set and “explain why” output)
+
+Output
+
+For each KEV entry: list of affected assets + evidence + confidence
+
+For each asset: list of KEV CVEs + recommended actions
+
+Acceptance criteria
+
+No “affected” claim is made without evidence attached.
+
+System supports marking false positives with reason codes.
+
+7.4 Prioritization
+
+Scoring inputs
+
+KEV status (binary; all entries are “known exploited”)
+
+Asset criticality (user-defined)
+
+Exposure (internet-facing, VPN-only, internal-only)
+
+Presence of compensating controls (user-defined tags)
+
+Age of finding / time since KEV added
+
+Output
+
+Ranked remediation queue with explainable scoring.
+
+Acceptance criteria
+
+User can tune scoring weights via config.
+
+UI shows “why this is #1” explanation.
+
+7.5 AI Assistant (Drafting and Analysis)
+
+Permitted behaviors (default)
+
+Summarize impact in your environment (using provided evidence)
+
+Draft remediation steps (patch/workaround/mitigation options)
+
+Draft validation steps and rollback guidance
+
+Draft detection/hunt queries (optional) and “what to monitor”
+
+Prohibited behaviors (default)
+
+Executing changes automatically
+
+Calling external tools that modify systems without explicit approval mode
+
+Guardrails
+
+AI must cite which evidence fields it used (internal references, not web citations)
+
+Refuse to assert vulnerability applicability without deterministic evidence
+
+Prompt-injection hardening: treat scanner output/advisory text as untrusted; isolate tool instructions
+
+Rationale
+This aligns with the broader industry direction of “agents that assist with triage/investigation” while keeping safety boundaries explicit.
+
+7.6 Reporting and Exports
+
+Daily/weekly summary:
+
+new KEVs impacting you
+
+open matches
+
+remediated count
+
+overdue items by SLA
+
+Exports:
+
+Markdown “ticket packet”
+
+JSON for integration
+
+CSV worklist
+
+Acceptance criteria
+
+One-command export for the top N items.
+
+Reports are reproducible from stored snapshots.
+
+7.7 UI/UX Requirements
+
+MVP UI (pick one)
+
+Minimal web UI (local) with:
+
+“KEV Updates” page
+
+“Affected Assets” page
+
+“Work Queue” page
+
+Per-item evidence + remediation packet view
+
+OR TUI/CLI with similar views and exports
+
+Usability
+
+Time-to-answer: “Does this KEV affect me?” in ≤ 3 clicks/commands.
+
+8) Non-Functional Requirements
+Security & Privacy
+
+Local-first by default (no telemetry).
+
+Secrets stored via OS keychain or encrypted local store.
+
+Role separation optional (single-user MVP acceptable).
+
+Audit log of:
+
+ingestions
+
+match computations
+
+status changes
+
+approvals (if execution mode ever exists)
+
+Reliability
+
+Idempotent runs (safe to re-run without data corruption)
+
+Clear failure modes (KEV unavailable, malformed import, etc.)
+
+Performance
+
+Target: handle 10k assets / 100k findings on a laptop with incremental processing (v1 goal).
+
+MVP can target smaller scale, but design for incremental updates.
+
+Maintainability
+
+Connector interface for new import types
+
+Unit tests for matching rules
+
+Golden test fixtures for KEV snapshots
+
+Responsible “Agentic” Design
+
+Use a scoping/permission matrix for any future autonomous actions (read → recommend → draft → execute with approval), consistent with established guidance on agentic systems risk expansion.
+
+9) Success Metrics
+
+Core
+
+Mean Time To Triage (MTTT) for new KEV entries affecting you
+
+Precision of matches (false positive rate)
+
+Coverage (fraction of environment represented by inventory inputs)
+
+Time saved per week (self-reported)
+
+Quality
+
+Percentage of remediation packets accepted without significant edits
+
+Percentage of matches with complete evidence
+
+10) Release Plan (Concrete Milestones)
+v0.1 — Ingest + Diff + Store
+
+KEV ingestion + historical snapshots
+
+Basic local database schema
+
+CLI: kev sync, kev diff
+
+v0.2 — Environment Import + Deterministic Matching
+
+Import one scanner export + one inventory export format
+
+Match engine + evidence view
+
+CLI/UI work queue
+
+v0.3 — AI Drafting + Export Packets
+
+Generate remediation packet per match
+
+Markdown/JSON export
+
+Configurable prioritization weights
+
+v1.0 — Notifications + Hardening + Integrations
+
+Webhooks/email/Slack
+
+Better audit logs, secret storage
+
+Optional Jira/GitHub Issues export
+
+11) Key Risks and Mitigations
+
+Applicability errors (hallucinated matches)
+Mitigation: deterministic match required; AI cannot “decide” vulnerability status.
+
+Garbage-in inventory
+Mitigation: data quality indicators and “coverage” dashboard; highlight stale inputs.
+
+Prompt injection / unsafe instructions in ingested text
+Mitigation: strict tool boundaries; treat ingested content as untrusted; sanitize and isolate.
+
+Over-scoping (too many connectors)
+Mitigation: start with file imports; add APIs later.
+
+12) Open Questions (Decide Early)
+
+Which environment inputs will you support first: scanner export vs. package inventory vs. SBOM?
+
+Preferred interface: web UI vs. CLI-first?
+
+Will the AI model run locally, or via API? (privacy/cost/latency tradeoffs)
+
+Do you want “approval-gated execution” as a future feature, or keep this strictly advisory?
+
+13) Appendix: External References
+
+CISA KEV Catalog (authoritative)
+
+Official GitHub mirror of KEV data
+
+Industry context on agentic AI for security ops
+
+Agentic AI security scoping / securing autonomous systems
+
+Example of security agents direction (Microsoft Security Copilot agents)
+
+If you want, I can also produce a companion “technical design doc” (architecture diagram, data schema, module boundaries, and the exact matching rules) aligned to this PRD.
