@@ -1,0 +1,48 @@
+# KEV Mapper Configuration
+
+# Database
+database:
+  path: "data/kev_mapper.db"
+
+# KEV Source
+kev:
+  source_url: "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+  github_mirror: "https://raw.githubusercontent.com/cisagov/KEV/main/known_exploited_vulnerabilities.json"
+  sync_interval_hours: 24
+
+# AI Assistant
+ai:
+  provider: "anthropic"  # anthropic or local
+  model: "claude-sonnet-4-5-20250929"
+  max_tokens: 4096
+  temperature: 0.3
+
+# Prioritization Weights
+prioritization:
+  weights:
+    asset_criticality: 0.35
+    exposure: 0.30
+    kev_age: 0.20
+    finding_age: 0.15
+
+  criticality_scores:
+    critical: 10
+    high: 7
+    medium: 4
+    low: 2
+
+  exposure_scores:
+    internet_facing: 10
+    vpn_only: 5
+    internal_only: 2
+
+# Reporting
+reporting:
+  default_export_path: "exports/"
+  include_evidence: true
+  max_items_per_report: 50
+
+# Audit
+audit:
+  enabled: true
+  log_path: "data/audit.log"
