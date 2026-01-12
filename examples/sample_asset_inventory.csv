@@ -1,0 +1,11 @@
+hostname,ip,os,criticality,environment,exposure,owner,tags
+webserver-01,192.168.1.10,Ubuntu 20.04,high,production,internet_facing,ops-team,"web,public,dmz"
+webserver-02,192.168.1.11,Ubuntu 20.04,high,production,internet_facing,ops-team,"web,public,dmz"
+dbserver-01,10.0.1.5,RHEL 8,critical,production,internal_only,dba-team,"database,mysql,sensitive"
+dbserver-02,10.0.1.6,RHEL 8,critical,production,internal_only,dba-team,"database,mysql,sensitive,replica"
+appserver-01,10.0.2.10,Ubuntu 22.04,medium,production,vpn_only,dev-team,"application,api"
+appserver-02,10.0.2.11,Ubuntu 22.04,medium,production,vpn_only,dev-team,"application,api"
+dev-workstation-01,10.10.1.50,Windows 11,low,development,internal_only,dev-team,"workstation,windows"
+jenkins-ci,10.0.3.20,Ubuntu 20.04,medium,production,vpn_only,devops-team,"ci-cd,jenkins,automation"
+monitoring-01,10.0.4.30,Debian 11,medium,production,internal_only,ops-team,"monitoring,prometheus"
+vpn-gateway,192.168.1.1,pfSense,critical,production,internet_facing,netops-team,"vpn,gateway,firewall"

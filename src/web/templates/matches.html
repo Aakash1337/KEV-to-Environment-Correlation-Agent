@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KEV Mapper - Matches</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 0;
+            margin-bottom: 30px;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        nav {
+            margin-top: 12px;
+        }
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin-right: 20px;
+            padding: 6px 12px;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+        nav a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        .filters {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        select, input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        table {
+            width: 100%;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .badge-open {
+            background: #fee;
+            color: #c33;
+        }
+        .badge-mitigated {
+            background: #efe;
+            color: #3c3;
+        }
+        .priority-high {
+            color: #d32f2f;
+            font-weight: bold;
+        }
+        .priority-medium {
+            color: #f57c00;
+        }
+        .priority-low {
+            color: #388e3c;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🔍 KEV Matches</h1>
+            <nav>
+                <a href="/">Dashboard</a>
+                <a href="/matches">Matches</a>
+                <a href="/assets">Assets</a>
+                <a href="/kev">KEV Updates</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="filters">
+            <label>Status:</label>
+            <select id="status-filter" onchange="loadMatches()">
+                <option value="">All</option>
+                <option value="open" selected>Open</option>
+                <option value="mitigated">Mitigated</option>
+                <option value="false_positive">False Positive</option>
+            </select>
+
+            <button onclick="loadMatches()">🔄 Refresh</button>
+            <button onclick="exportData('json')">📥 Export JSON</button>
+            <button onclick="exportData('csv')">📥 Export CSV</button>
+        </div>
+
+        <div id="matches-table">
+            <div class="loading">Loading matches...</div>
+        </div>
+    </div>
+
+    <script>
+        async function loadMatches() {
+            const status = document.getElementById('status-filter').value;
+            const tableDiv = document.getElementById('matches-table');
+
+            tableDiv.innerHTML = '<div class="loading">Loading matches...</div>';
+
+            try {
+                const url = `/api/matches${status ? '?status=' + status : ''}`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.matches.length === 0) {
+                    tableDiv.innerHTML = '<div class="loading">No matches found</div>';
+                    return;
+                }
+
+                let html = '<table><thead><tr>';
+                html += '<th>ID</th><th>CVE</th><th>Product</th><th>Asset</th>';
+                html += '<th>IP</th><th>Priority</th><th>Status</th><th>Confidence</th><th>Actions</th>';
+                html += '</tr></thead><tbody>';
+
+                data.matches.forEach(match => {
+                    const priorityClass = match.priority_score >= 70 ? 'priority-high' :
+                                        match.priority_score >= 40 ? 'priority-medium' : 'priority-low';
+                    const statusBadge = match.status === 'open' ? 'badge-open' : 'badge-mitigated';
+
+                    html += '<tr>';
+                    html += `<td>${match.id}</td>`;
+                    html += `<td><strong>${match.cve_id}</strong></td>`;
+                    html += `<td>${match.product || 'N/A'}</td>`;
+                    html += `<td>${match.hostname}</td>`;
+                    html += `<td>${match.ip_address || 'N/A'}</td>`;
+                    html += `<td class="${priorityClass}">${match.priority_score ? match.priority_score.toFixed(1) : 'N/A'}</td>`;
+                    html += `<td><span class="badge ${statusBadge}">${match.status}</span></td>`;
+                    html += `<td>${match.confidence_level || 'N/A'}</td>`;
+                    html += `<td><button onclick="viewMatch(${match.id})">View</button></td>`;
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table>';
+                tableDiv.innerHTML = html;
+
+            } catch (error) {
+                console.error('Error loading matches:', error);
+                tableDiv.innerHTML = '<div class="loading">Error loading matches</div>';
+            }
+        }
+
+        function viewMatch(id) {
+            // In a full implementation, this would open a modal or navigate to a detail page
+            window.open(`/api/matches/${id}`, '_blank');
+        }
+
+        async function exportData(format) {
+            try {
+                window.location.href = `/api/export/${format}`;
+            } catch (error) {
+                alert('Export failed');
+            }
+        }
+
+        // Load matches on page load
+        loadMatches();
+    </script>
+</body>
+</html>
